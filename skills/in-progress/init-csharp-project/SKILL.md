@@ -19,6 +19,7 @@ Plus the files/folders that make it all apply automatically:
 - **`.editorconfig`** — formatting/naming/diagnostic-severity rules for `CA`, `VSTHRD`, `SA`, and `CC` diagnostics.
 - **`Directory.Build.props`** — the properties above, plus `Nullable`, `ImplicitUsings`, `EnforceCodeStyleInBuild`, `GenerateDocumentationFile`, bootstrap `NoWarn`s, and all four analyzers' `PackageReference`/`AdditionalFiles` wiring.
 - **`stylecop.json`**, **`cleancoders.json`** — the two analyzers' own settings files.
+- **`.gitignore`** — standard .NET ignores (`bin/`, `obj/`, `.vs/`, `.idea/`, user/secret files, test results, NuGet packages).
 - A local-feed **`nuget.config`** entry, if the target can't already resolve `CleanCoders.Analyzers` from `C:\_LocalNuGet`.
 - A **`docs/`, `src/`, `tests/`** folder skeleton at the target root, if not already present.
 
@@ -38,17 +39,19 @@ Then check, at the target root, for an existing:
 - `Directory.Build.props`
 - `stylecop.json`
 - `cleancoders.json`
+- `.gitignore`
 - `nuget.config`
 
 Each of these is a single file per directory — this skill cannot layer a second copy alongside an existing one the way `Directory.Build.props` layers *up* a directory tree. Anywhere a file already exists, do not overwrite blindly; see step 2.
 
 ### 2. Copy or merge the static files
 
-Source for all of these is [`files/`](./files/) next to this `SKILL.md`.
+Source for all of these is [`files/`](./files/) next to this `SKILL.md` — every file there ships with this skill and gets deployed together, not picked individually.
 
-- **No existing file**: copy straight across (`.editorconfig`, `stylecop.json`, `cleancoders.json`, and `Directory.Build.props`).
+- **No existing file**: copy straight across (`.editorconfig`, `stylecop.json`, `cleancoders.json`, `.gitignore`, and `Directory.Build.props`).
 - **Existing `.editorconfig` / `stylecop.json` / `cleancoders.json`**: show the user a diff against this skill's copy and ask whether to overwrite, keep theirs, or hand-merge. Don't guess — these encode prior project-specific decisions you can't see from here.
 - **Existing `Directory.Build.props`**: never overwrite. Merge in the `<PropertyGroup>` values and the `<ItemGroup>` `PackageReference`/`AdditionalFiles` entries from `files/Directory.Build.props` that the existing file doesn't already have, preserving whatever the target already defines if it conflicts.
+- **Existing `.gitignore`**: never overwrite or ask for a full diff decision — append whichever lines from `files/.gitignore` are missing from the existing file, under a clearly marked `# from init-csharp-project` section header, so it's obvious later which lines came from this skill.
 
 ### 3. Make sure the packages can actually restore
 
@@ -80,6 +83,7 @@ At the target root, create `docs/`, `src/`, and `tests/` if they don't already e
 - [ ] Deliberately violate one rule from each of the four layers and confirm the expected diagnostic fires — e.g. a method with 4+ arguments for `CC0042`, a using-directive placed inside a namespace for StyleCop, an `async void` method for `VSTHRD100`
 - [ ] No `CCCFG001`/`CCCFG002`/`CCCFG003` diagnostics fire against the copied `cleancoders.json` (would mean it doesn't match the analyzer's embedded schema)
 - [ ] `docs/`, `src/`, `tests/` exist at the target root
+- [ ] `git status` (if the target is a git repo) shows `bin/`/`obj/` as ignored, not untracked, after a build
 
 ## Known gaps — don't paper over these without flagging them
 
