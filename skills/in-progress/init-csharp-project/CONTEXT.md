@@ -92,10 +92,17 @@ poorly covered. It does **not** belong to the quadruplet above and isn't wired i
   Threshold (default 30), coverage path, and output path are all CLI flags, re-specified on every
   invocation. If a fixed threshold ever needs to be checked into a project, that has to live in a
   wrapper script or documented command — the tool itself won't remember it.
-- `../SKILL.md` step 4 installs it as a **local** tool (`dotnet new tool-manifest` +
+- `../SKILL.md` step 4 installs it as a **local** tool (`dotnet new tool-manifest -o .config` +
   `dotnet tool install --local`, creating/updating `.config/dotnet-tools.json`), not global — same
   rationale as pinning `CleanCoders.Analyzers`'s version in `Directory.Build.props`: reproducible
   per-project via `dotnet tool restore`, no reliance on whatever happens to be installed machine-wide.
+  The `-o .config` is load-bearing, not stylistic: confirmed on SDK `10.0.400` that the bare
+  `dotnet new tool-manifest` creates `./dotnet-tools.json` at the invocation root instead of the
+  conventional `.config/dotnet-tools.json` — don't drop the explicit output path as a "simplification."
+- Invoke the installed tool as `dotnet dotnet-crap ...`, not `dotnet tool run dotnet-crap ...` —
+  confirmed the latter has `dotnet tool run` itself swallow a trailing `--help` and print its own
+  generic help instead of forwarding it to the tool. `dotnet dotnet-crap` is what the tool's own
+  install message recommends and the form confirmed to work.
 
 ## `TOOLSET.md` — the skill's own in-project documentation
 

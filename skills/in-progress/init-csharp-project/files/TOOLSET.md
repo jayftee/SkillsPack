@@ -133,12 +133,17 @@ are both complex *and* poorly tested. **Not part of the four analyzers above and
 
 ```
 dotnet tool restore
-dotnet tool run dotnet-crap analyze --run-tests --threshold 30 --output crap-report.json
+dotnet dotnet-crap analyze --run-tests --threshold 30 --output crap-report.json
 ```
 
 (`--run-tests` has it execute the test suite itself to produce coverage; alternatively point it at an
 existing Cobertura XML file, e.g. from `coverlet`. A `diff` subcommand compares two reports, useful
 before/after a refactor.)
+
+Use `dotnet dotnet-crap ...`, not `dotnet tool run dotnet-crap ...` — confirmed that the latter has
+`dotnet tool run` itself swallow a trailing `--help` and print its own generic help instead of
+forwarding it to the tool. `dotnet dotnet-crap` is the form the tool's own install message recommends
+and the one confirmed to work.
 
 It has **no project-level config file** — everything above is CLI flags, re-specified on every
 invocation. If a fixed threshold or standard invocation needs to be remembered project-to-project,

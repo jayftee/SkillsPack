@@ -65,7 +65,7 @@ Source for all of these is [`files/`](./files/) next to this `SKILL.md` — ever
 
 ### 3. Make sure the packages can actually restore
 
-`CleanCoders.Analyzers` is not on nuget.org — it's only in the local feed at `C:\_LocalNuGet`. Check whether the target already resolves it (a machine-wide NuGet source, or its own `nuget.config`). If not, add a `nuget.config` at the target root:
+`CleanCoders.Analyzers` is not on nuget.org — it's only in the local feed at `C:\_LocalNuGet`. Check whether the target already resolves it — run `dotnet nuget list source` and look for `C:\_LocalNuGet` registered machine-wide, don't assume based on a prior session; that can change on a different machine or after the machine-wide decision in `CONTEXT.md`'s "Open items" gets made. If it's not already resolvable, add a `nuget.config` at the target root:
 
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
@@ -85,7 +85,7 @@ This step is just writing/editing the config file — do it the same way whether
 [`Crap4DotNet`](https://www.nuget.org/packages/Crap4DotNet) computes CRAP scores (`complexity(m)² × (1 − coverage(m))³ + complexity(m)`) to flag methods that are both complex and poorly tested. Unlike the quadruplet, it's a CLI tool invoked on demand (with a coverage file, typically from `coverlet`), not a build-time analyzer, and it has no project config file of its own — see `CONTEXT.md` for why this step only manages the tool's *presence*, never its behavior.
 
 - Check for `.config/dotnet-tools.json` at the target root (a manifest is per-directory, not per-`.csproj` — this works identically whether or not a project has been scaffolded yet, same as step 3).
-  - **Missing**: run `dotnet new tool-manifest` to create it.
+  - **Missing**: run `dotnet new tool-manifest -o .config`, **not** the bare `dotnet new tool-manifest`. On at least one confirmed SDK (`10.0.400`), the bare command creates `./dotnet-tools.json` at the target root instead of the conventional `.config/dotnet-tools.json` — verified via `dotnet new tool-manifest --dry-run` showing `Create: ./dotnet-tools.json`. Explicit `-o .config` is what actually lands it at the right path. After running it, confirm `.config/dotnet-tools.json` exists before moving on; if the bare command was used by mistake and created a stray root-level `dotnet-tools.json`, delete that and redo it with `-o .config`.
   - **Exists**: read it before touching anything.
 - Check whether `Crap4DotNet` is already listed under `"tools"` in that manifest.
   - **Already present**: leave it alone — don't overwrite, don't bump the version without being asked. It's already installed for this project.
@@ -109,13 +109,12 @@ Runs in full only for a **scaffolded** target (step 1). For a **config-only** ru
 - [ ] *(scaffolded only)* No `CCCFG001`/`CCCFG002`/`CCCFG003` diagnostics fire against the copied `cleancoders.json` (would mean it doesn't match the analyzer's embedded schema)
 - [ ] `docs/`, `src/`, `tests/` exist at the target root
 - [ ] `git status` (if the target is a git repo) shows `bin/`/`obj/` as ignored, not untracked, after a build — meaningful immediately if there's already a project checked in; otherwise this just confirms the ignore rules are in place for later
-- [ ] `dotnet tool restore` succeeds and `dotnet tool run dotnet-crap --help` (or `dotnet dotnet-crap --help`) resolves — confirms `Crap4DotNet` is actually usable from the manifest, not just listed in it
+- [ ] `dotnet tool restore` succeeds and `dotnet dotnet-crap --help` prints the tool's own help — confirms `Crap4DotNet` is actually usable from the manifest, not just listed in it. Use this exact form, not `dotnet tool run dotnet-crap --help`: confirmed on a real run that the latter has `dotnet tool run` itself swallow `--help` and print its own generic help instead of forwarding it to the tool.
 
 ## Known gaps — don't paper over these without flagging them
 
-- This skill has not been run against a real project yet, in either order. Treat every step above as a draft until it has.
-- The config-first path (step 1) is new and unverified: nobody has yet confirmed end-to-end that a `Directory.Build.props`/`.editorconfig`/`nuget.config` dropped into an empty folder is actually picked up once `dotnet new` scaffolds a project underneath it. The MSBuild/NuGet upward-directory-walk mechanism this relies on is well-documented behavior, not a guess — but this skill's own first config-first run is still the thing that proves it in practice.
-- `AnalysisMode=AllEnabledByDefault` is a fresh, untested choice — expect the first real project run to surface rules worth suppressing immediately (start a running list in `CONTEXT.md` rather than silently accumulating `NoWarn`s with no record of why).
-- `VSTHRD*` severities are entirely untuned in `.editorconfig` (see step above) — same expectation: the first real run is what decides which of these need a severity override, not a guess made now.
-- Step 4 (`Crap4DotNet`) is new and unverified: nobody has yet confirmed the manifest-create → install → `dotnet tool restore` sequence end-to-end on a real target, in either the scaffolded or config-first case, or that `dotnet tool run dotnet-crap` is actually the right invocation once installed locally.
+- **Confirmed via a real config-first run** (empty target folder): steps 1–7's config-first path (file copy, `nuget.config`, the `Crap4DotNet` manifest-install-restore-invoke sequence including the `-o .config` and `dotnet dotnet-crap --help` fixes now baked into steps 4/7, folder skeleton, the `stylecop.json` placeholder question, and the deferred-checklist framing) all work as written. That run wasn't a git repo and never reached `dotnet new`, so it didn't exercise the `.gitignore` check or step 6's `Directory.Build.props`-merge branch.
+- **Still unconfirmed**: whether `Directory.Build.props`/`.editorconfig`/`nuget.config` dropped into an empty folder are actually picked up correctly once `dotnet new` scaffolds a `.csproj` underneath them, and the full scaffolded-only verify checklist (`dotnet restore`/`build`, the four-layer rule-violation check, the `CCCFG*` schema check). The MSBuild/NuGet upward-directory-walk mechanism this relies on is well-documented behavior, not a guess — but no run has exercised it yet. Also still unconfirmed: this skill's behavior when a target already has some of these files present (the diff-and-ask / merge branches in step 2 and 3) — the one real run so far started from a completely empty folder, so nothing has exercised the merge paths.
+- `AnalysisMode=AllEnabledByDefault` is a fresh, untested choice — expect the first real project *build* to surface rules worth suppressing immediately (start a running list in `CONTEXT.md` rather than silently accumulating `NoWarn`s with no record of why).
+- `VSTHRD*` severities are entirely untuned in `.editorconfig` (see step above) — same expectation: the first real build is what decides which of these need a severity override, not a guess made now.
 - `TOOLSET.md` is hand-written and kept in sync with the rest of this skill manually — there's no automated check that its per-file descriptions still match `files/*` or the steps above. If you change a version pin, a suppressed rule, or a step's behavior, update `files/TOOLSET.md` in the same pass or newly-deployed copies will misdescribe themselves.
