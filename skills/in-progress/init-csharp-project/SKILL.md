@@ -21,12 +21,13 @@ Plus the files/folders that make it all apply automatically:
 - **`stylecop.json`**, **`cleancoders.json`** — the two analyzers' own settings files.
 - **`.gitignore`** — standard .NET ignores (`bin/`, `obj/`, `.vs/`, `.idea/`, user/secret files, test results, NuGet packages).
 - A local-feed **`nuget.config`** entry, if the target can't already resolve `CleanCoders.Analyzers` from `C:\_LocalNuGet`.
+- **`Crap4DotNet`** as a local `dotnet tool`, if not already installed — a CRAP-score (complexity × poor-coverage risk) reporter, separate from the quadruplet: it's a CLI tool run on demand against a coverage file, not a build-time analyzer, and has no settings file of its own (CLI flags only — see `CONTEXT.md`).
 - A **`docs/`, `src/`, `tests/`** folder skeleton at the target root, if not already present.
 
 This skill only ever adds files *around* the actual `.csproj` — it never touches the `.csproj` itself. That means it works in either order:
 
-- **After scaffolding**: `dotnet new webapi`/`console`/`classlib`/etc. (or an existing project) has already created the `.csproj`. The full verify checklist in step 6 applies immediately.
-- **Before scaffolding**: the target is an empty (or otherwise project-less) folder — you're bundling the payload first and will run `dotnet new` later, e.g. as a step that falls out of spec/issue work. This works because `Directory.Build.props`, `.editorconfig`, and `nuget.config` are all discovered by an upward directory walk from wherever a `.csproj` eventually lands, performed at build/restore time — not at file-creation time. Nothing about MSBuild/NuGet cares which came first. Step 6's restore/build checks just get deferred until a project actually exists to run them against.
+- **After scaffolding**: `dotnet new webapi`/`console`/`classlib`/etc. (or an existing project) has already created the `.csproj`. The full verify checklist in step 7 applies immediately.
+- **Before scaffolding**: the target is an empty (or otherwise project-less) folder — you're bundling the payload first and will run `dotnet new` later, e.g. as a step that falls out of spec/issue work. This works because `Directory.Build.props`, `.editorconfig`, and `nuget.config` are all discovered by an upward directory walk from wherever a `.csproj` eventually lands, performed at build/restore time — not at file-creation time. Nothing about MSBuild/NuGet cares which came first. Step 7's restore/build checks just get deferred until a project actually exists to run them against.
 
 Background on *why* these specific files/rules exist lives in [`CONTEXT.md`](./CONTEXT.md) next to this file — read it if a step below doesn't make sense, don't duplicate it here.
 
@@ -34,10 +35,10 @@ Background on *why* these specific files/rules exist lives in [`CONTEXT.md`](./C
 
 ### 1. Confirm the target and detect what's already there
 
-Check the target directory (default: current working directory) for a `.sln`/`.slnx` or at least one `.csproj` somewhere under it. Don't stop if there isn't one — record which case you're in, since it changes step 6:
+Check the target directory (default: current working directory) for a `.sln`/`.slnx` or at least one `.csproj` somewhere under it. Don't stop if there isn't one — record which case you're in, since it changes step 7:
 
-- **Scaffolded** (`.sln`/`.slnx`/`.csproj` found): the full verify checklist in step 6 applies.
-- **Empty / config-only** (none found): this is a config-first run, ahead of a `dotnet new` that hasn't happened yet. Proceed through steps 2–5 as normal, but skip step 6's restore/build/diagnostic checks — there's no project yet to run them against — and tell the user those are deferred until they've scaffolded the project, at which point re-running this skill (or just `dotnet restore`/`build`) picks them back up.
+- **Scaffolded** (`.sln`/`.slnx`/`.csproj` found): the full verify checklist in step 7 applies.
+- **Empty / config-only** (none found): this is a config-first run, ahead of a `dotnet new` that hasn't happened yet. Proceed through steps 2–6 as normal, but skip step 7's restore/build/diagnostic checks — there's no project yet to run them against — and tell the user those are deferred until they've scaffolded the project, at which point re-running this skill (or just `dotnet restore`/`build`) picks them back up.
 
 Then check, at the target root, for an existing:
 
@@ -47,6 +48,7 @@ Then check, at the target root, for an existing:
 - `cleancoders.json`
 - `.gitignore`
 - `nuget.config`
+- `.config/dotnet-tools.json`
 
 Each of these is a single file per directory — this skill cannot layer a second copy alongside an existing one the way `Directory.Build.props` layers *up* a directory tree. Anywhere a file already exists, do not overwrite blindly; see step 2.
 
@@ -76,17 +78,28 @@ If the target already has a `nuget.config`, add the `<add key="LocalCleanCoders"
 
 This step is just writing/editing the config file — do it the same way whether or not a project exists yet. `nuget.config` is resolved by the same upward-directory-walk mechanism as `Directory.Build.props`, so it doesn't matter whether it predates the `.csproj` it will eventually apply to.
 
-### 4. Create the folder skeleton
+### 4. Install `Crap4DotNet` as a local tool — check first, don't reinstall blindly
+
+[`Crap4DotNet`](https://www.nuget.org/packages/Crap4DotNet) computes CRAP scores (`complexity(m)² × (1 − coverage(m))³ + complexity(m)`) to flag methods that are both complex and poorly tested. Unlike the quadruplet, it's a CLI tool invoked on demand (with a coverage file, typically from `coverlet`), not a build-time analyzer, and it has no project config file of its own — see `CONTEXT.md` for why this step only manages the tool's *presence*, never its behavior.
+
+- Check for `.config/dotnet-tools.json` at the target root (a manifest is per-directory, not per-`.csproj` — this works identically whether or not a project has been scaffolded yet, same as step 3).
+  - **Missing**: run `dotnet new tool-manifest` to create it.
+  - **Exists**: read it before touching anything.
+- Check whether `Crap4DotNet` is already listed under `"tools"` in that manifest.
+  - **Already present**: leave it alone — don't overwrite, don't bump the version without being asked. It's already installed for this project.
+  - **Not present**: run `dotnet tool install --local Crap4DotNet --version 0.1.1` (0.1.1 is latest on nuget.org as of this writing — check for a newer version before installing into a brand-new project rather than assuming this pin is still current, the same way `Directory.Build.props`'s `CleanCoders.Analyzers` pin gets bumped).
+
+### 5. Create the folder skeleton
 
 At the target root, create `docs/`, `src/`, and `tests/` if they don't already exist. These start empty — don't scaffold anything inside them (no placeholder `.cs` files, no test project) unless separately asked to. If the target is (or will be) a git repo and a folder is left empty, add a `.gitkeep` inside it so it survives the first commit; skip that for any of the three that already has content.
 
-### 5. Ask about the `stylecop.json` placeholder
+### 6. Ask about the `stylecop.json` placeholder
 
 `stylecop.json`'s `companyName` ships as `"Acme"` — inert today because `Directory.Build.props` suppresses the file-header rules (`SA1633`/`SA1636`) that would consume it. Ask the user whether they want a real company/author name here, or are fine leaving the placeholder (harmless while those rules stay suppressed).
 
-### 6. Verify
+### 7. Verify
 
-Runs in full only for a **scaffolded** target (step 1). For a **config-only** run, do just the last two checks now — the rest need a real `.csproj` to run against — and tell the user the first four are deferred until they scaffold the project:
+Runs in full only for a **scaffolded** target (step 1). For a **config-only** run, do just the last three checks now — the rest need a real `.csproj` to run against — and tell the user the first four are deferred until they scaffold the project:
 
 - [ ] *(scaffolded only)* `dotnet restore` succeeds (confirms `CleanCoders.Analyzers` resolved from the local feed; the other three from nuget.org)
 - [ ] *(scaffolded only)* `dotnet build` succeeds — expect a large first-run wave of new `CA`/`IDE` warnings from `AnalysisMode=AllEnabledByDefault`; that's the intended starting state, not a bug (see `CONTEXT.md` for the plan to tone individual rules down over time)
@@ -94,6 +107,7 @@ Runs in full only for a **scaffolded** target (step 1). For a **config-only** ru
 - [ ] *(scaffolded only)* No `CCCFG001`/`CCCFG002`/`CCCFG003` diagnostics fire against the copied `cleancoders.json` (would mean it doesn't match the analyzer's embedded schema)
 - [ ] `docs/`, `src/`, `tests/` exist at the target root
 - [ ] `git status` (if the target is a git repo) shows `bin/`/`obj/` as ignored, not untracked, after a build — meaningful immediately if there's already a project checked in; otherwise this just confirms the ignore rules are in place for later
+- [ ] `dotnet tool restore` succeeds and `dotnet tool run dotnet-crap --help` (or `dotnet dotnet-crap --help`) resolves — confirms `Crap4DotNet` is actually usable from the manifest, not just listed in it
 
 ## Known gaps — don't paper over these without flagging them
 
@@ -101,3 +115,4 @@ Runs in full only for a **scaffolded** target (step 1). For a **config-only** ru
 - The config-first path (step 1) is new and unverified: nobody has yet confirmed end-to-end that a `Directory.Build.props`/`.editorconfig`/`nuget.config` dropped into an empty folder is actually picked up once `dotnet new` scaffolds a project underneath it. The MSBuild/NuGet upward-directory-walk mechanism this relies on is well-documented behavior, not a guess — but this skill's own first config-first run is still the thing that proves it in practice.
 - `AnalysisMode=AllEnabledByDefault` is a fresh, untested choice — expect the first real project run to surface rules worth suppressing immediately (start a running list in `CONTEXT.md` rather than silently accumulating `NoWarn`s with no record of why).
 - `VSTHRD*` severities are entirely untuned in `.editorconfig` (see step above) — same expectation: the first real run is what decides which of these need a severity override, not a guess made now.
+- Step 4 (`Crap4DotNet`) is new and unverified: nobody has yet confirmed the manifest-create → install → `dotnet tool restore` sequence end-to-end on a real target, in either the scaffolded or config-first case, or that `dotnet tool run dotnet-crap` is actually the right invocation once installed locally.
