@@ -105,6 +105,22 @@ If/when this folder's `Directory.Build.props` gets the `CleanCoders.Analyzers` `
 - `../SKILL.md` step 4 installs it as a **local** tool (`dotnet new tool-manifest` + `dotnet tool install --local`, creating/updating `.config/dotnet-tools.json`), not global — same rationale as pinning `CleanCoders.Analyzers`'s version in `Directory.Build.props`: reproducible per-project via `dotnet tool restore`, no reliance on whatever happens to be installed machine-wide.
 - **Unverified**: nobody has run the manifest-create → install → restore sequence end-to-end yet, and the exact post-install invocation (`dotnet tool run dotnet-crap`, confirmed as the documented pattern for local tools, vs. whether `dotnet dotnet-crap` also works) hasn't been checked against a real install.
 
+## `TOOLSET.md` — added 2026-09-05, the skill's own in-project documentation
+
+`../files/TOOLSET.md` is deployed into every target project alongside the rest of the payload (step 2
+of `../SKILL.md`, same as `.editorconfig`/`stylecop.json`/`cleancoders.json`). It exists because
+neither this `CONTEXT.md` nor `../SKILL.md` travels with the target project — only `files/` does — so
+without it, a project six months later has the *files* but not the *why*, and nobody re-reads this
+skill's source repo to find out. `README.md` was deliberately not used for this, to avoid colliding
+with whatever `dotnet new` or the project itself puts there.
+
+It documents, per file: what it is, what it depends on / is depended on by, and the same known-gaps
+(placeholder `companyName`, untuned `VSTHRD` severities, `CleanCoders.Analyzers`' local-feed
+requirement, `Crap4DotNet`'s lack of a config file) called out in `../SKILL.md` and above — kept in
+sync manually; there's no automated check that they agree. If `../SKILL.md` or `../files/*` changes in
+a way that changes what's true for a newly-initialized project, `../files/TOOLSET.md` needs the same
+edit, or newly-deployed copies start silently misdescribing themselves.
+
 ## Target end-to-end workflow — superseded by the skill
 
 The `dotnet new cleancoders-config` workflow below was the original plan for this section and is kept only as historical record; it depends on the deferred item-template work above. **The current workflow is `../SKILL.md`**, run from inside Claude Code — it also now creates `docs/`, `src/`, `tests/` itself (see `../SKILL.md` step 4), which this original sketch had marked as a manual step. **Updated 2026-09-05**: `../SKILL.md` no longer requires an already-scaffolded project — step 1 now supports running config-first against an empty folder too (payload dropped in before `dotnet new`, verification deferred until a `.csproj` exists), matching a workflow where `dotnet new` itself falls out of spec/issue work (e.g. `wayfinder`/`grill-with-docs`) done after the skill's folder/config setup, not before it.

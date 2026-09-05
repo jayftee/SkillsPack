@@ -23,6 +23,7 @@ Plus the files/folders that make it all apply automatically:
 - A local-feed **`nuget.config`** entry, if the target can't already resolve `CleanCoders.Analyzers` from `C:\_LocalNuGet`.
 - **`Crap4DotNet`** as a local `dotnet tool`, if not already installed — a CRAP-score (complexity × poor-coverage risk) reporter, separate from the quadruplet: it's a CLI tool run on demand against a coverage file, not a build-time analyzer, and has no settings file of its own (CLI flags only — see `CONTEXT.md`).
 - A **`docs/`, `src/`, `tests/`** folder skeleton at the target root, if not already present.
+- **`TOOLSET.md`** — describes every file/tool above in detail (what it is, what it depends on, known gaps) for whoever opens this project cold later. Deliberately not `README.md`, so it never collides with the project's own.
 
 This skill only ever adds files *around* the actual `.csproj` — it never touches the `.csproj` itself. That means it works in either order:
 
@@ -49,6 +50,7 @@ Then check, at the target root, for an existing:
 - `.gitignore`
 - `nuget.config`
 - `.config/dotnet-tools.json`
+- `TOOLSET.md`
 
 Each of these is a single file per directory — this skill cannot layer a second copy alongside an existing one the way `Directory.Build.props` layers *up* a directory tree. Anywhere a file already exists, do not overwrite blindly; see step 2.
 
@@ -56,8 +58,8 @@ Each of these is a single file per directory — this skill cannot layer a secon
 
 Source for all of these is [`files/`](./files/) next to this `SKILL.md` — every file there ships with this skill and gets deployed together, not picked individually.
 
-- **No existing file**: copy straight across (`.editorconfig`, `stylecop.json`, `cleancoders.json`, `.gitignore`, and `Directory.Build.props`).
-- **Existing `.editorconfig` / `stylecop.json` / `cleancoders.json`**: show the user a diff against this skill's copy and ask whether to overwrite, keep theirs, or hand-merge. Don't guess — these encode prior project-specific decisions you can't see from here.
+- **No existing file**: copy straight across (`.editorconfig`, `stylecop.json`, `cleancoders.json`, `.gitignore`, `TOOLSET.md`, and `Directory.Build.props`).
+- **Existing `.editorconfig` / `stylecop.json` / `cleancoders.json` / `TOOLSET.md`**: show the user a diff against this skill's copy and ask whether to overwrite, keep theirs, or hand-merge. Don't guess — these encode prior project-specific decisions you can't see from here. For `TOOLSET.md` specifically, an existing copy likely means this skill has already been run here before — check whether it's just describing the same payload (safe to overwrite/refresh) or has accumulated project-specific notes worth preserving (merge instead).
 - **Existing `Directory.Build.props`**: never overwrite. Merge in the `<PropertyGroup>` values and the `<ItemGroup>` `PackageReference`/`AdditionalFiles` entries from `files/Directory.Build.props` that the existing file doesn't already have, preserving whatever the target already defines if it conflicts.
 - **Existing `.gitignore`**: never overwrite or ask for a full diff decision — append whichever lines from `files/.gitignore` are missing from the existing file, under a clearly marked `# from init-csharp-project` section header, so it's obvious later which lines came from this skill.
 
@@ -116,3 +118,4 @@ Runs in full only for a **scaffolded** target (step 1). For a **config-only** ru
 - `AnalysisMode=AllEnabledByDefault` is a fresh, untested choice — expect the first real project run to surface rules worth suppressing immediately (start a running list in `CONTEXT.md` rather than silently accumulating `NoWarn`s with no record of why).
 - `VSTHRD*` severities are entirely untuned in `.editorconfig` (see step above) — same expectation: the first real run is what decides which of these need a severity override, not a guess made now.
 - Step 4 (`Crap4DotNet`) is new and unverified: nobody has yet confirmed the manifest-create → install → `dotnet tool restore` sequence end-to-end on a real target, in either the scaffolded or config-first case, or that `dotnet tool run dotnet-crap` is actually the right invocation once installed locally.
+- `TOOLSET.md` is hand-written and kept in sync with the rest of this skill manually — there's no automated check that its per-file descriptions still match `files/*` or the steps above. If you change a version pin, a suppressed rule, or a step's behavior, update `files/TOOLSET.md` in the same pass or newly-deployed copies will misdescribe themselves.
