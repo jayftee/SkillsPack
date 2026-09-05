@@ -98,7 +98,7 @@ If/when this folder's `Directory.Build.props` gets the `CleanCoders.Analyzers` `
 
 ## Target end-to-end workflow — superseded by the skill
 
-The `dotnet new cleancoders-config` workflow below was the original plan for this section and is kept only as historical record; it depends on the deferred item-template work above. **The current workflow is `../SKILL.md`**, run from inside Claude Code against an already-scaffolded project — it also now creates `docs/`, `src/`, `tests/` itself (see `../SKILL.md` step 4), which this original sketch had marked as a manual step.
+The `dotnet new cleancoders-config` workflow below was the original plan for this section and is kept only as historical record; it depends on the deferred item-template work above. **The current workflow is `../SKILL.md`**, run from inside Claude Code — it also now creates `docs/`, `src/`, `tests/` itself (see `../SKILL.md` step 4), which this original sketch had marked as a manual step. **Updated 2026-09-05**: `../SKILL.md` no longer requires an already-scaffolded project — step 1 now supports running config-first against an empty folder too (payload dropped in before `dotnet new`, verification deferred until a `.csproj` exists), matching a workflow where `dotnet new` itself falls out of spec/issue work (e.g. `wayfinder`/`grill-with-docs`) done after the skill's folder/config setup, not before it.
 
 ```powershell
 mkdir MyNewProject; cd MyNewProject; git init
