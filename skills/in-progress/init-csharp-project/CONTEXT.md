@@ -123,9 +123,10 @@ themselves.
 - Whether to register `C:\_LocalNuGet` as a **machine-wide** NuGet source, instead of the per-project
   `nuget.config` `../SKILL.md` step 3 adds today. Not decided either way; both work.
 - The `cleancoders.json` editor-authoring schema delivery mechanism (see "Schema handling" above).
-- This skill's own known gaps (untested config-first path, untuned `VSTHRD` severities, unverified
-  `Crap4DotNet` install sequence, etc.) live in `../SKILL.md`'s "Known gaps" section, not duplicated
-  here — check there for the current list.
+- This skill's own known gaps (the scaffolded/build-verify path, the diff-and-ask merge branches,
+  untuned `VSTHRD` severities, etc. — the config-first path and the `Crap4DotNet` install sequence are
+  now confirmed working, see below) live in `../SKILL.md`'s "Known gaps" section, not duplicated here —
+  check there for the current list.
 
 ## Re-syncing with the source repo
 
