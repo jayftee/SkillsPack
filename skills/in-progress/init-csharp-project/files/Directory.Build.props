@@ -28,8 +28,8 @@
       must be documented) active and un-suppressed. SA1611/SA1615/etc. (doc-completeness checks for
       any comment that *is* written) were already active before this and don't need touching — this
       just adds the "every applicable member needs one at all" requirement on top. A project that
-      genuinely can't satisfy this (see tests/CleanCoders.Analyzers.Tests.csproj for the pattern and
-      the reasoning) opts out locally with GenerateDocumentationFile=false, not by editing this file.
+      genuinely can't satisfy this opts out locally with GenerateDocumentationFile=false, not by
+      editing this file.
     -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
 
@@ -54,9 +54,7 @@
       SA1516: Elements should be separated by blank line.
       Fires on nearly every file's using-directive block: this repo's own .editorconfig already
       declares dotnet_separate_import_directive_groups = true, but no file has ever actually been
-      formatted to match it. Suppressed until that repo-wide reformat happens as its own pass — see
-      docs/Trinity.md. (The previous justification here, "template-generated files", didn't apply:
-      this repo has none, and the rule doesn't discriminate by file origin anyway.)
+      formatted to match it. Suppressed until a repo-wide reformat happens as its own pass.
     -->
     <NoWarn>$(NoWarn);SA1516</NoWarn>
     <!--

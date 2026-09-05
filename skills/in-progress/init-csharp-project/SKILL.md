@@ -16,7 +16,7 @@ The quadruplet of analyzers, all wired centrally in `Directory.Build.props` so e
 
 Plus the files/folders that make it all apply automatically:
 
-- **`.editorconfig`** — formatting/naming/diagnostic-severity rules for `CA`, `VSTHRD`, `SA`, and `CC` diagnostics.
+- **`.editorconfig`** — formatting/naming/diagnostic-severity rules for `CA`, `SA`, and `CC` diagnostics. **Not yet tuned for `VSTHRD`** (`Microsoft.VisualStudio.Threading.Analyzers`) — it ships with zero `dotnet_diagnostic.VSTHRD*.severity` overrides, so those rules will surface at whatever severity the analyzer defaults to until a real project run shows which ones are worth adjusting.
 - **`Directory.Build.props`** — the properties above, plus `Nullable`, `ImplicitUsings`, `EnforceCodeStyleInBuild`, `GenerateDocumentationFile`, bootstrap `NoWarn`s, and all four analyzers' `PackageReference`/`AdditionalFiles` wiring.
 - **`stylecop.json`**, **`cleancoders.json`** — the two analyzers' own settings files.
 - **`.gitignore`** — standard .NET ignores (`bin/`, `obj/`, `.vs/`, `.idea/`, user/secret files, test results, NuGet packages).
@@ -89,3 +89,4 @@ At the target root, create `docs/`, `src/`, and `tests/` if they don't already e
 
 - This skill has not been run against a real project yet. Treat every step above as a draft until it has.
 - `AnalysisMode=AllEnabledByDefault` is a fresh, untested choice — expect the first real project run to surface rules worth suppressing immediately (start a running list in `CONTEXT.md` rather than silently accumulating `NoWarn`s with no record of why).
+- `VSTHRD*` severities are entirely untuned in `.editorconfig` (see step above) — same expectation: the first real run is what decides which of these need a severity override, not a guess made now.
