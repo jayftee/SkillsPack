@@ -1,0 +1,108 @@
+{
+  // Each task runs `<selected interpreter> -m poethepoet <task>`. The commands themselves live in
+  // pyproject.toml under [tool.poe.tasks]; this file only makes them reachable from VS Code
+  // (Terminal > Run Task, or Ctrl+Shift+B for "check") and sends ruff/mypy findings to the Problems panel.
+  "version": "2.0.0",
+  "options": { "cwd": "${workspaceFolder}" },
+  "presentation": { "reveal": "always", "panel": "shared", "clear": true },
+  "tasks": [
+    {
+      "label": "check",
+      "detail": "format, lint, types, imports, test, crap - stops at the first failure",
+      "type": "process",
+      "command": "${command:python.interpreterPath}",
+      "args": ["-m", "poethepoet", "check"],
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": [
+        {
+          "owner": "ruff",
+          "source": "ruff",
+          "fileLocation": ["relative", "${workspaceFolder}"],
+          "severity": "error",
+          "pattern": { "regexp": "^(.+?):(\\d+):(\\d+): ([A-Z]+\\d+) (.*)$", "file": 1, "line": 2, "column": 3, "code": 4, "message": 5 }
+        },
+        {
+          "owner": "mypy",
+          "source": "mypy",
+          "fileLocation": ["relative", "${workspaceFolder}"],
+          "pattern": { "regexp": "^(.+?):(\\d+):(\\d+): (error|warning|note): (.*)$", "file": 1, "line": 2, "column": 3, "severity": 4, "message": 5 }
+        }
+      ]
+    },
+    {
+      "label": "format",
+      "type": "process",
+      "command": "${command:python.interpreterPath}",
+      "args": ["-m", "poethepoet", "format"],
+      "problemMatcher": []
+    },
+    {
+      "label": "lint",
+      "type": "process",
+      "command": "${command:python.interpreterPath}",
+      "args": ["-m", "poethepoet", "lint"],
+      "problemMatcher": [
+        {
+          "owner": "ruff",
+          "source": "ruff",
+          "fileLocation": ["relative", "${workspaceFolder}"],
+          "severity": "error",
+          "pattern": { "regexp": "^(.+?):(\\d+):(\\d+): ([A-Z]+\\d+) (.*)$", "file": 1, "line": 2, "column": 3, "code": 4, "message": 5 }
+        }
+      ]
+    },
+    {
+      "label": "types",
+      "type": "process",
+      "command": "${command:python.interpreterPath}",
+      "args": ["-m", "poethepoet", "types"],
+      "problemMatcher": [
+        {
+          "owner": "mypy",
+          "source": "mypy",
+          "fileLocation": ["relative", "${workspaceFolder}"],
+          "pattern": { "regexp": "^(.+?):(\\d+):(\\d+): (error|warning|note): (.*)$", "file": 1, "line": 2, "column": 3, "severity": 4, "message": 5 }
+        }
+      ]
+    },
+    {
+      "label": "imports",
+      "type": "process",
+      "command": "${command:python.interpreterPath}",
+      "args": ["-m", "poethepoet", "imports"],
+      "problemMatcher": []
+    },
+    {
+      "label": "test",
+      "type": "process",
+      "command": "${command:python.interpreterPath}",
+      "args": ["-m", "poethepoet", "test"],
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "crap",
+      "detail": "needs lcov.info from the test task",
+      "type": "process",
+      "command": "${command:python.interpreterPath}",
+      "args": ["-m", "poethepoet", "crap"],
+      "problemMatcher": []
+    },
+    {
+      "label": "fix",
+      "detail": "applies ruff's safe fixes and formats - changes files",
+      "type": "process",
+      "command": "${command:python.interpreterPath}",
+      "args": ["-m", "poethepoet", "fix"],
+      "problemMatcher": []
+    },
+    {
+      "label": "audit",
+      "detail": "known-vulnerability scan - needs network",
+      "type": "process",
+      "command": "${command:python.interpreterPath}",
+      "args": ["-m", "poethepoet", "audit"],
+      "problemMatcher": []
+    }
+  ]
+}

@@ -9,9 +9,11 @@ A personal collection of [Claude Code Skills](https://code.claude.com/docs/en/sk
 Each skill targets one language/ecosystem, because "initialize a project folder" means something different in each one:
 
 - **C#** (`init-csharp-project`) — wires `.editorconfig`, `Directory.Build.props`, StyleCop, and a custom Clean-Code-derived Roslyn analyzer (`CleanCoders.Analyzers`) via MSBuild/NuGet conventions.
-- **Python** (`init-python-project`, planned) — `.editorconfig`, `ruff`, and `pyproject.toml` conventions.
+- **Python** (`init-python-project`) — a project `.venv` (from system Python or an ArcGIS Pro clone), ruff, strict mypy, pytest with branch coverage, import-linter, crap4py and pip-audit, all configured in a single `pyproject.toml` and run through poethepoet and VS Code tasks, plus a layered `src/` package with a working sample.
 
 This started as a plan to ship the C# config as a `dotnet new` item template distributed through a local NuGet feed. That's C#-specific plumbing (MSBuild, `PackageReference`, `nuget.config`) that doesn't generalize to Python, which has its own idiomatic tooling. A Claude Code Skill is the layer that *does* generalize: a skill is just instructions plus bundled files that Claude executes with its own file tools, so "initialize a C# folder" and "initialize a Python folder" can be two skills sharing one distribution mechanism, each with its own payload underneath. The NuGet item template idea isn't dead — the C# skill could still shell out to it once it exists — but it's no longer required to get value today; the skill can copy/merge the payload files directly.
+
+Python's baseline mirrors the C# one in *spirit*, not in mechanism. Python has no build-time analyzer pass, so the quality layer is a set of command-line tools chained by one task runner, the same relationship `Crap4DotNet` has to the C# analyzer stack. The real structural difference: `pyproject.toml` is both the project's identity and the tool-config hub, where C# keeps those apart (`.csproj` vs. `Directory.Build.props`), so the Python skill has to merge into the project file and derive an import name from the project name. See [`init-python-project`'s `CONTEXT.md`](./skills/in-progress/init-python-project/CONTEXT.md) for the reasoning.
 
 ## Structure
 
@@ -39,8 +41,8 @@ This repo has no `.claude-plugin/plugin.json` yet — that's the eventual step o
 
 | Skill | Bucket | Status |
 |---|---|---|
-| [`init-csharp-project`](./skills/in-progress/init-csharp-project/) | `in-progress` | Payload present (`.editorconfig`, `Directory.Build.props`, `stylecop.json`, `cleancoders.json` under `files/`); `SKILL.md` not written yet — see its [`CONTEXT.md`](./skills/in-progress/init-csharp-project/CONTEXT.md) for the design history behind the payload |
-| `init-python-project` | `in-progress` | Not started — folder scaffolded only, no payload or `SKILL.md` yet |
+| [`init-csharp-project`](./skills/in-progress/init-csharp-project/) | `in-progress` | `SKILL.md`/`CONTEXT.md`/`TOOLSET.md` written; config-first path (file copy, local NuGet feed, `Crap4DotNet` local-tool install) confirmed twice against a real empty folder. Scaffolded path (`dotnet new` → restore/build → the four-layer rule-violation check) not yet exercised — see its [`CONTEXT.md`](./skills/in-progress/init-csharp-project/CONTEXT.md) |
+| [`init-python-project`](./skills/in-progress/init-python-project/) | `in-progress` | `SKILL.md`/`MERGING.md`/`CONTEXT.md`, payload under `files/` and `files-arcgis/`, copy script under `scripts/`. Fresh-folder path run end to end on system Python and on an ArcGIS Pro 3.7.2 clone: `check` and `audit` pass, each check fails on a deliberate violation, the clone is left unchanged. Merge paths not yet exercised — see its `SKILL.md` |
 
 ## Using a skill from this repo
 
@@ -56,12 +58,18 @@ Rather than copying a skill's folder into every project you use it in (and drift
 New-Item -ItemType SymbolicLink -Path ".claude\skills\init-csharp-project" -Target "E:\SkillsPack\skills\in-progress\init-csharp-project"
 ```
 
+Same pattern for any other skill in this repo — only the names change:
+
+```powershell
+New-Item -ItemType SymbolicLink -Path ".claude\skills\init-python-project" -Target "E:\SkillsPack\skills\in-progress\init-python-project"
+```
+
 (Creating a symlink on Windows normally needs Developer Mode turned on, or an elevated shell — see **Settings > Privacy & security > For developers** if `New-Item` refuses.)
 
 Once linked:
 
-- **User-invoked**: type `/init-csharp-project` in that project's Claude Code session.
-- **Model-invoked**: Claude can also reach for the skill on its own if the task matches its `description` frontmatter, unless the skill sets `disable-model-invocation: true`.
+- **User-invoked**: type `/init-csharp-project` (or `/init-python-project`, etc.) in that project's Claude Code session.
+- **Model-invoked**: Claude can also reach for a skill on its own if the task matches its `description` frontmatter, unless the skill sets `disable-model-invocation: true`.
 
 A newly-created top-level `.claude\skills\` folder needs a Claude Code restart to be picked up; adding further skills under one that already exists does not.
 
@@ -71,6 +79,6 @@ A newly-created top-level `.claude\skills\` folder needs a Claude Code restart t
 
 ## Next steps
 
-1. Write `skills/in-progress/init-csharp-project/SKILL.md` — detect what's already in the target project, copy/merge the four files in `files/`, wire the `Directory.Build.props`/`.csproj` references, verify.
-2. Build out `init-python-project`'s payload and `SKILL.md`.
+1. Run `init-csharp-project` through its scaffolded path end-to-end (`dotnet new` → restore/build → the four-layer rule-violation check) — only the config-first path has real runs behind it so far.
+2. Run `init-python-project` against an existing project (the `MERGING.md` paths); only fresh folders have been run so far.
 3. Once both have survived real use on real projects, move them into a topic bucket.

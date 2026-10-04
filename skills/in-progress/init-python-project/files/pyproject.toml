@@ -1,0 +1,187 @@
+# All tool configuration for this project lives in this file. Tool-specific config files
+# (ruff.toml, mypy.ini, pytest.ini, .coveragerc, setup.cfg, ...) silently take precedence over
+# the sections below, so do not add any - see TOOLSET.md.
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "{{PROJECT_NAME}}"
+version = "0.1.0"
+description = "{{PROJECT_NAME}}"
+requires-python = ">={{PYTHON_VERSION}}"
+dependencies = []
+
+[project.scripts]
+"{{PROJECT_NAME}}" = "{{PACKAGE_NAME}}.__main__:main"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.16.10",
+    "mypy>=2.4.0",
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+    "pytest-randomly>=5.0.0",
+    "poethepoet>=0.48.0",
+    "import-linter>=2.15",
+    "crap4py==0.1.1",          # pinned: single-maintainer 0.x tool, see TOOLSET.md
+    "pip-audit>=2.10.1",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"{{PACKAGE_NAME}}" = ["py.typed"]
+
+# --- Commands -------------------------------------------------------------------------------
+# Run as: .venv\Scripts\python.exe -m poethepoet <task>
+#
+# Every task starts with `python -m`, never a bare tool name. Poe resolves `python` to the project
+# .venv; a bare name like `pytest` is looked up on PATH whenever .venv has no executable of that name,
+# which happens when a .venv built with --system-site-packages (ArcGIS Pro) finds the tool in the base
+# environment instead. import-linter has no `python -m` entry point, hence the script task.
+
+[tool.poe]
+# Force UTF-8 output: on Windows, some tools (import-linter) crash with UnicodeEncodeError when
+# their output is redirected and Python falls back to the legacy cp1252 encoding.
+env = { PYTHONUTF8 = "1" }
+
+[tool.poe.tasks]
+format = { cmd = "python -m ruff format --check .", help = "Check formatting (changes nothing)" }
+lint = { cmd = "python -m ruff check .", help = "Lint (changes nothing)" }
+types = { cmd = "python -m mypy", help = "Type-check src and tests" }
+imports = { script = "importlinter.cli:lint_imports_command", help = "Check layer import rules" }
+test = { cmd = "python -m pytest --cov --cov-report=term-missing --cov-report=lcov:lcov.info", help = "Run tests with branch coverage" }
+crap = { cmd = "python -m crap4py src --lcov lcov.info --max-crap 30", help = "CRAP gate (run 'test' first)" }
+check = { sequence = ["format", "lint", "types", "imports", "test", "crap"], help = "Everything above, in order; stops at the first failure" }
+fix = { sequence = ["_fix-lint", "_fix-format"], help = "Apply ruff's safe lint fixes, then format" }
+_fix-lint = "python -m ruff check --fix ."
+_fix-format = "python -m ruff format ."
+audit = { cmd = "python -m pip_audit --local", help = "Scan the .venv's own packages for known vulnerabilities (needs network)" }
+
+# --- Lint and format ------------------------------------------------------------------------
+
+[tool.ruff]
+line-length = 120
+output-format = "concise"   # file:line:col: CODE message - one line per finding, parsed by .vscode/tasks.json
+# target-version is deliberately unset: ruff reads it from requires-python above.
+
+[tool.ruff.lint]
+select = [
+    "E", "W",  # pycodestyle
+    "F",       # pyflakes: unused imports, undefined names
+    "B",       # bugbear: likely bugs
+    "I",       # isort: import order
+    "N",       # pep8-naming
+    "UP",      # pyupgrade: modern syntax for the target version
+    "PL",      # pylint subset
+    "RUF",     # ruff-specific
+    "D",       # pydocstyle (google convention below)
+    "C4",      # comprehensions
+    "PTH",     # pathlib over os.path
+    "SIM",     # simplifications
+    "ARG",     # unused arguments
+    "RET",     # return statements
+    "PT",      # pytest style
+    "COM",     # trailing commas
+    "S",       # security (bandit rules)
+    "ICN",     # conventional import aliases
+    "PIE",     # misc
+    "ISC",     # implicit string concatenation
+    "LOG",     # logging
+    "FURB",    # refurb: modernisation
+    "PERF",    # performance anti-patterns
+    "FA",      # future annotations
+    "RSE",     # raise statements
+    "ANN",     # annotations
+    "C90",     # mccabe complexity (max-complexity below)
+    "TID",     # tidy imports: relative imports banned below
+]
+ignore = [
+    "COM812",  # conflicts with the formatter, which manages trailing commas itself
+    "E501",    # the formatter enforces line-length; what remains are unsplittable strings/URLs
+    "ANN401",  # allow explicit typing.Any where it is genuinely needed
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = [
+    "S101",     # assert is how pytest tests are written
+    "PLR2004",  # literal expected values are the point of a test
+    "D",        # test names document themselves
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["{{PACKAGE_NAME}}"]
+combine-as-imports = true
+force-sort-within-sections = true
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"   # always import as {{PACKAGE_NAME}}.layer.module
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10   # ruff's default; also the backstop if crap4py is ever dropped
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+# --- Types ----------------------------------------------------------------------------------
+
+[tool.mypy]
+files = ["src", "tests"]
+strict = true
+warn_unreachable = true
+show_column_numbers = true    # file:line:col, parsed by .vscode/tasks.json
+explicit_package_bases = true # tests/ has no __init__.py files; module names come from the paths below
+mypy_path = ["src", ".", "typings"]  # typings/: local stubs that replace broken third-party ones (see TOOLSET.md)
+# python_version is deliberately unset: mypy uses the interpreter it runs in.
+
+# --- Tests and coverage ---------------------------------------------------------------------
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["--import-mode=importlib", "--strict-markers", "--strict-config"]
+xfail_strict = true
+# The folder (tests/unit, tests/integration) says what kind of test it is.
+# Markers describe traits that cut across both folders.
+markers = [
+    "slow: takes noticeably longer than the rest of the suite",
+    "database: needs a real database",
+    "external: calls a system outside this machine",
+]
+
+[tool.coverage.run]
+source = ["{{PACKAGE_NAME}}"]
+branch = true   # crap4py reads branch coverage
+
+[tool.coverage.report]
+fail_under = 80   # backstop alongside crap4py; raise it as the project matures
+show_missing = true
+exclude_also = [
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "@(abc\\.)?abstractmethod",
+    "class .*\\bProtocol\\):",
+]
+
+# --- Architecture ---------------------------------------------------------------------------
+# Higher layers may import lower ones, never the reverse. "|" separates sibling layers that may
+# not import each other. __main__ sits outside the layers and wires them together.
+
+[tool.importlinter]
+root_package = "{{PACKAGE_NAME}}"
+
+[[tool.importlinter.contracts]]
+name = "Layers only import downwards"
+type = "layers"
+layers = [
+    "{{PACKAGE_NAME}}.services",
+    "{{PACKAGE_NAME}}.repositories | {{PACKAGE_NAME}}.clients",
+    "{{PACKAGE_NAME}}.config",
+    "{{PACKAGE_NAME}}.models",
+    "{{PACKAGE_NAME}}.enums",
+    "{{PACKAGE_NAME}}.exceptions",
+    "{{PACKAGE_NAME}}.utils",
+]
