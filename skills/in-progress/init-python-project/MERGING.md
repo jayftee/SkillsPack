@@ -16,10 +16,11 @@ otherwise. Add what the template has and the file lacks:
 | `[dependency-groups] dev` | Add each missing tool. Keep any tool already listed at the project's own version. If the project lists dev tools under `[project.optional-dependencies] dev` instead, ask whether to move them into the group. |
 | `[tool.poe]`, `[tool.poe.tasks]` | Add missing tasks. If a task name already exists with a different command, show both and ask. |
 | `[tool.ruff*]`, `[tool.mypy]`, `[tool.pytest.ini_options]`, `[tool.coverage.*]` | Add missing tables whole. For a table that exists, add missing keys and keep the project's values where both define one; list every conflict to the user. |
+| `[tool.smoke]` | Add as is (`arguments = []`), then set `arguments` so every command in `[project.scripts]` exits 0 when run with them. |
 | `[tool.importlinter]` | Add only if the project uses the template's layer folders. Otherwise ask: the contract would fail on a different layout. |
-| `[tool.setuptools.*]` | Keep the project's packaging configuration; add `package-data` for `py.typed` only if it has no conflicting entry. |
+| `[tool.setuptools.*]` | Keep the project's packaging configuration; add `package-data` for `py.typed` only if it has no conflicting entry. If the project's data files live outside the package, tell the user they will not be in the wheel (see `TOOLSET.md`, Package and deploy). |
 
-After merging, `tomllib` must parse the file: `<venv-python> -c "import tomllib; tomllib.load(open('pyproject.toml', 'rb'))"`.
+After merging, `tomllib` must parse the file: `python -c "import tomllib; tomllib.load(open('pyproject.toml', 'rb'))"`.
 
 ## `.gitignore`: append
 
@@ -46,6 +47,10 @@ payload, refresh it; if it has gathered project-specific notes, merge instead.
 A file under `src/` or `tests/` that already exists belongs to the project: keep it. If the project
 has its own package under another name, ask whether to add the sample at all; the layer folders and
 their `_what_goes_here.md` files can be added without the sample code.
+
+## `scripts/smoke.py`
+
+If the project already has a `scripts/` folder, the script is added next to its files. A file with the same name is a clash: show both and ask. The `smoke` and `package` poe tasks assume this path.
 
 ## Runtime dependencies in `requirements.txt`
 

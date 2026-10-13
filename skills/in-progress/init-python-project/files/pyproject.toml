@@ -27,21 +27,25 @@ dev = [
     "import-linter>=2.15",
     "crap4py==0.1.1",          # pinned: single-maintainer 0.x tool, see TOOLSET.md
     "pip-audit>=2.10.1",
+    "build>=1.2",              # builds the wheel for deployment (poe package)
 ]
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
+# Files inside the package that must travel in the wheel. py.typed marks the package as typed. Add data
+# files the same way (for example "data/*.json") and read them with importlib.resources, never through a
+# path relative to the working directory: an installed command runs from wherever the user happens to be.
 "{{PACKAGE_NAME}}" = ["py.typed"]
 
 # --- Commands -------------------------------------------------------------------------------
-# Run as: .venv\Scripts\python.exe -m poethepoet <task>
+# Run as: python -m poethepoet <task>, with the development environment's python first on PATH.
 #
-# Every task starts with `python -m`, never a bare tool name. Poe resolves `python` to the project
-# .venv; a bare name like `pytest` is looked up on PATH whenever .venv has no executable of that name,
-# which happens when a .venv built with --system-site-packages (ArcGIS Pro) finds the tool in the base
-# environment instead. import-linter has no `python -m` entry point, hence the script task.
+# Poe resolves `python` from PATH, not from the interpreter that launched it. If another Python comes
+# first, tasks silently run that Python's tools (or fail with "No module named ..."). Every task starts
+# with `python -m`, never a bare tool name, so each tool is found in that one environment.
+# import-linter has no `python -m` entry point, hence the script task.
 
 [tool.poe]
 # Force UTF-8 output: on Windows, some tools (import-linter) crash with UnicodeEncodeError when
@@ -59,7 +63,12 @@ check = { sequence = ["format", "lint", "types", "imports", "test", "crap"], hel
 fix = { sequence = ["_fix-lint", "_fix-format"], help = "Apply ruff's safe lint fixes, then format" }
 _fix-lint = "python -m ruff check --fix ."
 _fix-format = "python -m ruff format ."
-audit = { cmd = "python -m pip_audit --local", help = "Scan the .venv's own packages for known vulnerabilities (needs network)" }
+audit = { cmd = "python -m pip_audit --local", help = "Scan the environment's installed packages for known vulnerabilities (needs network)" }
+package = { sequence = ["check", "_clean-dist", "_clean-build", "_build"], help = "Run check, then build a fresh wheel into dist/ (needs network for the build backend)" }
+_clean-dist = { script = "shutil:rmtree('dist', ignore_errors=True)" }
+_clean-build = { script = "shutil:rmtree('build', ignore_errors=True)" }
+_build = "python -m build --wheel"
+smoke = { cmd = "python scripts/smoke.py", help = "Install the newest wheel from dist/ into a clean environment and run the commands from another folder (--python PATH: use an existing environment)" }
 
 # --- Lint and format ------------------------------------------------------------------------
 
@@ -111,6 +120,9 @@ ignore = [
     "PLR2004",  # literal expected values are the point of a test
     "D",        # test names document themselves
 ]
+"scripts/**" = [
+    "S603",     # scripts run subprocesses on purpose, with argument lists and never through a shell
+]
 
 [tool.ruff.lint.isort]
 known-first-party = ["{{PACKAGE_NAME}}"]
@@ -129,7 +141,7 @@ convention = "google"
 # --- Types ----------------------------------------------------------------------------------
 
 [tool.mypy]
-files = ["src", "tests"]
+files = ["src", "tests", "scripts"]
 strict = true
 warn_unreachable = true
 show_column_numbers = true    # file:line:col, parsed by .vscode/tasks.json
@@ -185,3 +197,10 @@ layers = [
     "{{PACKAGE_NAME}}.exceptions",
     "{{PACKAGE_NAME}}.utils",
 ]
+
+# --- Deployment smoke test -------------------------------------------------------------------
+
+[tool.smoke]
+# Arguments passed to every command in [project.scripts] by `poe smoke`; each run must exit 0.
+# Leave empty if the commands work without arguments, or use something harmless like ["--help"].
+arguments = []

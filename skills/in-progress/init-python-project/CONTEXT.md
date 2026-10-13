@@ -25,27 +25,46 @@ Python has no `Directory.Build.props` equivalent: `pyproject.toml` is both the p
 the tool hub. That is why this skill, unlike the C# one, has to merge into the project file
 (`MERGING.md`) and substitute names into it.
 
-## Always a project `.venv`, even for ArcGIS
+## No project `.venv`: one dedicated environment per role
 
-The commands live in poethepoet. Poe runs a task's tools from an environment only when it finds a
-`./.venv` or `./venv` in the project; with any other interpreter it falls back to `PATH`. Observed:
-launched from an environment outside the project, it ran a global ruff 0.15 instead of the project's
-0.16 and could not find mypy at all.
+The skill installs into an environment the user names and creates none. Esri clones already are the unit
+of isolation: a clone for development (the tools, the project installed with `-e`), a clean clone for
+runtime testing (only the wheel), and the server's own. A `.venv` layered over a clone with
+`--system-site-packages` was a second isolation mechanism on top of that one, with its own checks
+(`pip freeze` unchanged, tools found in the wrong place).
 
-The first design installed the dev tools straight into an ArcGIS Pro clone, which also meant
-pip-installing a dozen packages into the environment `arcpy` depends on. The replacement creates `.venv` from the clone's `python.exe`
-with `--system-site-packages`: `arcpy` and the clone's packages stay importable, the dev tools land in
-`.venv` only, and the clone is never touched. Every project now has the same shape; the only choice is
-the base interpreter. `pip-audit --local` keeps the clone's packages out of the vulnerability report.
+This replaces the first two designs. The first installed the dev tools straight into a clone that was
+also used to run `arcpy` code. The second put a `.venv` over the clone because that polluted the
+environment `arcpy` depends on. Dedicated clones remove that reason; the clone is expected to change.
 
-First real run, ArcGIS Pro 3.7.2 (clone on Python 3.13.13), surfaced three things:
+The `.venv` had a second job that the new design still has to cover. Poe runs a task's tools from an
+environment only when it finds a `./.venv` or `./venv` in the project; otherwise it resolves `python`
+through `PATH`. Observed on the user's machine with the first design: it ran a global ruff 0.15 instead
+of the project's 0.16 and could not find mypy at all. Re-tested with a stand-in environment outside the
+project, no `.venv`, and poe launched by that environment's own python:
 
-- **Every task is `python -m <tool>`.** pip skipped installing pytest into `.venv` because the clone
+- System Python first on `PATH`: `poe types` failed with `No module named mypy`; `poe test` could not use
+  pytest-cov. Launching poe from the right interpreter does **not** select the environment.
+- The environment's `Scripts` folder first on `PATH` (what activating does): `poe check` passed.
+- Poe's `executor = { type = "simple" }` changed nothing. `executor = { type = "virtualenv", location = ... }`
+  worked, but needs a machine-specific path in a committed file.
+
+So the rule is that the development environment's `python` is first on `PATH` for every poe task, and step 2
+of `SKILL.md` verifies it before anything runs. A silent wrong-tool run is the failure it prevents.
+
+The development environment holds the tools and any other project installed in it, so it can hide an
+undeclared dependency. `poe smoke` therefore installs the wheel into a clean environment (a throwaway
+venv, or a clean clone with `--python`) and runs the commands from an unrelated folder.
+
+First real run, ArcGIS Pro 3.7.2 (clone on Python 3.13.13, under the earlier `.venv` design), surfaced three things:
+
+- **Every task is `python -m <tool>`.** pip skipped installing pytest into the `.venv` because the clone
   already had 9.1.1, so `.venv\Scripts` had no `pytest.exe` and poe ran some other pytest from PATH,
-  one without pytest-cov. Poe resolves `python` to the `.venv`'s interpreter, which then finds each tool
-  in `.venv` or in the clone. import-linter is the exception: `python -m importlinter.cli` prints nothing
-  and exits 0 (no `__main__` guard), a silent pass, so `imports` is a poe `script` task calling
-  `importlinter.cli:lint_imports_command`; it was checked to fail on a real violation.
+  one without pytest-cov. A bare tool name is looked up on `PATH` and may be another environment's;
+  `python -m <tool>` finds it in whichever environment `python` is. That still holds. import-linter is the
+  exception: `python -m importlinter.cli` prints nothing and exits 0 (no `__main__` guard), a silent
+  pass, so `imports` is a poe `script` task calling `importlinter.cli:lint_imports_command`; it was
+  checked to fail on a real violation.
 - **Esri's arcpy stubs are broken** (`arcpy/typing/gp.pyi`, an overload with no body). mypy stops at
   the first syntax error in any stub it reads, and neither `follow_imports = "skip"` nor `"silent"`,
   per module or global, stops it reading that file. A local stub in `typings/` (on `mypy_path`, ahead
@@ -55,7 +74,16 @@ First real run, ArcGIS Pro 3.7.2 (clone on Python 3.13.13), surfaced three thing
   `.venv`. The clone also ships with a conflict of its own (`lifelines` wants `pandas<3`, the clone has
   3.0.3) that `pip check` reports in `.venv` too.
 
-## pip + venv, dependency groups
+First run straight into a clone (Pro 3.7.2, Python 3.13.13, new design) worked end to end, with two effects:
+
+- **VS Code's Ruff extension locks `Scriptsuff.exe`.** It runs the exe as a language server, Windows will
+  not let pip replace a running exe, and VS Code respawns the process if it is killed. pip had already
+  removed ruff's files when it failed, so the clone was left half-upgraded (`~uff` folders in
+  `site-packages`). Step 5 of `SKILL.md` now tells the user to quit VS Code or disable the extension first.
+- **pip replaces conda-built packages**: pytest 8.4.2 and rich 13.9.4 became PyPI builds. Accepted: the
+  clone is dedicated to development and the skill reports the change from `pip freeze`.
+
+## pip, dependency groups
 
 The user's choice over uv. Dev tools sit in `[dependency-groups] dev` (PEP 735, `pip install --group`,
 pip 25.1+), not in an extra, so installing the project never pulls them in and they are not published
@@ -123,7 +151,7 @@ sample).
 | bandit | Ruff's `S` rules are the same checks |
 | debugpy | Bundled with VS Code's Python Debugger extension |
 | pre-commit | Undecided; would bend the one-file rule with `.pre-commit-config.yaml` |
-| lockfile (pip-tools, `pip lock`) | Undecided; pip + venv has no lockfile of its own |
+| lockfile (pip-tools, `pip lock`) | Undecided; pip has no lockfile of its own |
 | vulture | Dead-code detection; most valuable for the legacy-script work, so deferred to it |
 | mutmut | Mutation testing; slow, for occasional runs later |
 | CI | Depends on where the code is hosted |
@@ -137,3 +165,22 @@ sample).
   more.
 - The multi-job layout for the ~100 legacy scripts is a separate piece of work and will reuse this
   baseline.
+
+## Packaging and deployment
+
+- **The deliverable is a wheel**, installed with `pip` into the Python whose `Scripts` folder is on the
+  user's `PATH`. The deployment targets are management scripts run from the command line, with Python
+  already installed; the commands come from `[project.scripts]`. No pipx: it isolates each tool in its
+  own environment and puts launchers outside the existing `PATH`, and an isolated environment has no
+  `arcpy`. A zipapp or PyInstaller is for machines without Python, which is not the case here.
+- **`package` runs `check` first**, then cleans `dist/` and `build/` (setuptools keeps stale modules in
+  `build/`) and builds only a wheel. The build needs network access for `setuptools`.
+- **`smoke` is a script, not a shell one-liner.** Making a venv, finding its launcher folder and running
+  from a temporary folder is awkward on Windows in one line. Poe passes extra arguments through to it
+  (`poe smoke --python ...`). It runs the launchers, not `python -m`, because the launcher is what the
+  recipient types. It uninstalls afterwards so a reused runtime-test clone stays clean.
+- **Bundled data lives inside the package** and is read with `importlib.resources`. Found with a sample
+  that read `data/potatoes.json` relative to the working directory: it ran from the project folder and
+  failed from anywhere else, and the file was not in the wheel.
+- **A shared Python is shared.** Every wheel installed into the same Python shares its packages and its
+  command names. Hence the rules to keep runtime dependencies few and loose, and command names distinct.

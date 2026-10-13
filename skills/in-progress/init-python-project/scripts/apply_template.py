@@ -13,14 +13,13 @@ from __future__ import annotations
 
 import argparse
 import keyword
-import os
 from pathlib import Path
 import re
 import sys
 
 SKILL_ROOT = Path(__file__).resolve().parent.parent
 TEMPLATE_ROOT = SKILL_ROOT / "files"
-ARCGIS_TEMPLATE_ROOT = SKILL_ROOT / "files-arcgis"  # overlay for a .venv built from an ArcGIS Pro clone
+ARCGIS_TEMPLATE_ROOT = SKILL_ROOT / "files-arcgis"  # overlay for an ArcGIS Pro clone
 MINIMUM_PYTHON = (3, 11)  # StrEnum in the sample; every dev tool needs 3.10+
 
 # Each of these takes precedence over its [tool.*] section in pyproject.toml.
@@ -55,7 +54,7 @@ def parse_arguments(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--package-name", help="import name; default: project name with - replaced by _")
     parser.add_argument("--python-version", required=True, help="the base Python's major.minor, e.g. 3.13")
     parser.add_argument(
-        "--arcgis", action="store_true", help="also copy files-arcgis/ (the .venv is built from an ArcGIS Pro clone)"
+        "--arcgis", action="store_true", help="also copy files-arcgis/ (the target environment is an ArcGIS Pro clone)"
     )
     parser.add_argument("--dry-run", action="store_true", help="report what would happen, write nothing")
     return parser.parse_args(argv)
@@ -76,13 +75,10 @@ def validation_errors(arguments: argparse.Namespace, package_name: str) -> list[
 
 def build_tokens(arguments: argparse.Namespace, package_name: str) -> dict[str, str]:
     """Map every {{TOKEN}} in the template to its value."""
-    venv_python = ".venv/Scripts/python.exe" if os.name == "nt" else ".venv/bin/python"
     return {
         "{{PROJECT_NAME}}": arguments.project_name,
         "{{PACKAGE_NAME}}": package_name,
         "{{PYTHON_VERSION}}": arguments.python_version,
-        "{{VSCODE_INTERPRETER}}": "${workspaceFolder}/" + venv_python,
-        "{{INTERPRETER}}": venv_python,
     }
 
 
@@ -140,7 +136,7 @@ def main(argv: list[str]) -> int:
     print(
         f"\n{created_count} files {verb} created; {len(results) - created_count} already existed and {verb} left alone."
     )
-    print(f"project: {arguments.project_name}  package: {package_name}  interpreter: {tokens['{{INTERPRETER}}']}")
+    print(f"project: {arguments.project_name}  package: {package_name}  python: {arguments.python_version}")
     return 0
 
 
