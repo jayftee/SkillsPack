@@ -8,7 +8,7 @@ A personal collection of [Claude Code Skills](https://code.claude.com/docs/en/sk
 
 Each skill targets one language/ecosystem, because "initialize a project folder" means something different in each one:
 
-- **C#** (`init-csharp-project`) — wires `.editorconfig`, `Directory.Build.props`, StyleCop, and a custom Clean-Code-derived Roslyn analyzer (`CleanCoders.Analyzers`) via MSBuild/NuGet conventions.
+- **C#** (`init-csharp-project`) — the four-analyzer set (the built-in Roslyn/.NET analyzers, `Microsoft.VisualStudio.Threading.Analyzers`, StyleCop, and a custom Clean-Code-derived analyzer, `CleanCoders.Analyzers`), wired through `.editorconfig`, `Directory.Build.props` and MSBuild/NuGet conventions, plus the `Crap4DotNet` complexity/coverage tool and a `docs/src/tests` folder skeleton.
 - **Python** (`init-python-project`) — a project `.venv` (from system Python or an ArcGIS Pro clone), ruff, strict mypy, pytest with branch coverage, import-linter, crap4py and pip-audit, all configured in a single `pyproject.toml` and run through poethepoet and VS Code tasks, plus a layered `src/` package with a working sample.
 
 This started as a plan to ship the C# config as a `dotnet new` item template distributed through a local NuGet feed. That's C#-specific plumbing (MSBuild, `PackageReference`, `nuget.config`) that doesn't generalize to Python, which has its own idiomatic tooling. A Claude Code Skill is the layer that *does* generalize: a skill is just instructions plus bundled files that Claude executes with its own file tools, so "initialize a C# folder" and "initialize a Python folder" can be two skills sharing one distribution mechanism, each with its own payload underneath. The NuGet item template idea isn't dead — the C# skill could still shell out to it once it exists — but it's no longer required to get value today; the skill can copy/merge the payload files directly.
@@ -23,7 +23,10 @@ skills/
 │   └── <skill-name>/
 │       ├── SKILL.md            <- the skill itself: name/description frontmatter + steps
 │       ├── CONTEXT.md          <- (optional) background/decisions specific to this skill
+│       ├── MERGING.md          <- (optional) how to merge into an existing project
+│       ├── scripts/            <- (optional) helper scripts the skill runs
 │       └── files/              <- the actual payload copied/merged into a target project
+│           (plus optional variants, e.g. files-arcgis/)
 └── <topic>/                   <- e.g. project-init/ — where a skill moves once it's trusted
     └── <skill-name>/
         ├── SKILL.md
