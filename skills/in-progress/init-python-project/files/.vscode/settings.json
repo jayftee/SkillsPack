@@ -1,0 +1,32 @@
+{
+  // No interpreter is set here: it is a path on one machine. Pick the development environment with
+  // "Python: Select Interpreter"; the tasks, the linters and the test runner all follow that choice.
+
+  // mypy is the only type checker. Pylance keeps completion and navigation but reports no type
+  // errors, so the editor never disagrees with `poe types`.
+  "python.analysis.typeCheckingMode": "off",
+  "mypy-type-checker.importStrategy": "fromEnvironment",
+
+  // Use the ruff installed in the selected environment, so the editor matches `poe lint`.
+  "ruff.importStrategy": "fromEnvironment",
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports.ruff": "explicit"
+    }
+  },
+
+  "python.testing.pytestEnabled": true,
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestArgs": ["tests"],
+
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/.mypy_cache": true,
+    "**/.ruff_cache": true,
+    "**/.pytest_cache": true,
+    "**/.import_linter_cache": true,
+    "**/*.egg-info": true
+  }
+}

@@ -1,0 +1,7 @@
+# Store text with LF line endings in the repository and in the working tree, matching .editorconfig.
+* text=auto eol=lf
+
+# Windows scripts need CRLF to run.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
